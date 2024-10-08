@@ -17,3 +17,30 @@ radio.enableAckPayload()  # Habilita càrrega útil a l'ACK
 radio.openWritingPipe(b'1Node')  # Direcció del transmissor
 radio.openReadingPipe(1, b'2Node')  # Direcció del receptor
 radio.stopListening()  # Mòdul en mode de transmissió
+
+type_device = "transmitter"
+
+if type_device == "transmitter":
+  ruta_usb = '/media/pi/USB_DISK/'  # Cambiar si el dispositiu té una altra ruta
+  ruta_arxiu_txt = obtenir_primer_txt(ruta_usb)
+  
+  if ruta_arxiu_txt:
+      # Llegir l'arxiu per blocs (per exemple, 1 KB per bloc)
+      mida_bloc = 1024  # Llegir d'1 KB en 1 KB
+  
+      for bloc in llegir_fitxer_per_blocs(ruta_arxiu_txt, mida_bloc):
+          # Comprimir cada bloc de l'arxiu abans d'enviar-lo
+          bloc_comprimit = comprimir_dades_per_bloc(bloc)
+  
+          # Enviar el bloc comprimit
+          enviar_bloc(bloc_comprimit)
+  
+          # Esperar a gestionar qualsevol petició de reenvio
+          if gestionar_peticio_reenvio():
+              enviar_bloc(bloc_comprimit)  # Reenviar el bloc si es demana
+  
+  else:
+      print("No s'ha trobat cap arxiu .txt al dispositiu USB.")
+else:
+  receptor_nrf24()
+GPIO.cleanup()  # Netejar els pins GPIO després d'utilitzar
