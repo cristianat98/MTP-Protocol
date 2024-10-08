@@ -1,0 +1,7 @@
+lib_nrf24
+nrf24
+os
+RPi
+spidev
+time
+zlib
