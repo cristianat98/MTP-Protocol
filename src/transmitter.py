@@ -1,15 +1,29 @@
 import os
-import spidev
-import RPi.GPIO as GPIO
-import nrf24
-import time
 import zlib
 
-def obtenir_primer_txt(ruta_usb):
+
+def get_data_file():
+    # TODO: Determine USB path
+    ruta_usb = '/media/pi/USB_DISK/'
+    ruta_arxiu_txt = find_file(ruta_usb)
+
+    if not ruta_arxiu_txt:
+        print("No s'ha trobat cap arxiu .txt al dispositiu USB.")
+        return False
+
+    try:
+        with open(ruta_arxiu_txt, 'r') as arxiu:
+            return arxiu.read()
+    except FileNotFoundError:
+        print(f"Arxiu no trobat: {ruta_arxiu_txt}")
+        return None
+
+
+def find_file(ruta_usb):
     try:
         # Llistar arxius en el directorio de la ruta USB
         arxius = os.listdir(ruta_usb)
-        
+
         # Filtrar arxius .txt i retornar el primer
         for arxiu in arxius:
             if arxiu.endswith('.txt'):
@@ -21,29 +35,18 @@ def obtenir_primer_txt(ruta_usb):
     except FileNotFoundError:
         print(f"No es troba el directori {ruta_usb}")
         return None
-    
-def llegir_fitxer_per_blocs(ruta_arxiu, mida_bloc):
-    try:
-        with open(ruta_arxiu, 'r') as arxiu:
-            while True:
-                bloc = arxiu.read(mida_bloc)
-                if not bloc:
-                    break  # Final de l'arxiu
-                yield bloc  # Retorna cada bloc (yield per usar-lo com a generador)
-    except FileNotFoundError:
-        print(f"Arxiu no trobat: {ruta_arxiu}")
-        return None
-    
-def comprimir_dades_per_bloc(bloc):
-    # Comprimir el bloc
-    bloc_comprimit = zlib.compress(bloc.encode('utf-8'))
-    return bloc_comprimit
+
 
 def dividir_en_fragments(contingut, mida_fragment=32):
-    fragments = [contingut[i:i + mida_fragment] for i in range(0, len(contingut), mida_fragment)]
+    fragments = [
+        contingut[i:i + mida_fragment] for i in range(
+            0, len(contingut), mida_fragment
+        )
+    ]
     return fragments
 
-def enviar_bloc(bloc):
+
+def enviar_bloc(bloc, radio):
     # Dividir el bloc comprimit en fragments de 32 bytes
     fragments = dividir_en_fragments(bloc)
 
@@ -51,7 +54,7 @@ def enviar_bloc(bloc):
         # Ajustar la mida del fragment a la mida de la payload
         if len(fragment) < 32:
             fragment += bytes(32 - len(fragment))  # Omplir amb zeros si es menor de 32 bytes
-        
+
         # Enviar el fragment
         resultado = radio.write(fragment)
         if resultado:
@@ -64,13 +67,9 @@ def enviar_bloc(bloc):
     radio.write(final_bloc)  # Enviar el fragment de final de bloc
     print("Fragment de final de bloc enviat.")
 
-    # Enviar el fragment de final de document
-    final_document = bytes(32)  # Fragment ple de zeros per indicar el final de document
-    radio.write(final_document)  # Enviar el fragment de final de document
-    print("Fragment de final de document enviat.")
 
 # Funció per gestionar la recepció de peticions de reenvio
-def gestionar_peticio_reenvio():
+def gestionar_peticio_reenvio(radio):
     radio.startListening()  # Canviar a mode receptor
     while True:
         if radio.available(0):
@@ -82,25 +81,33 @@ def gestionar_peticio_reenvio():
                 print("Petició de reenvio rebuda.")
                 return True
 
-ruta_usb = '/media/pi/USB_DISK/'  # Cambiar si el dispositiu té una altra ruta
-ruta_arxiu_txt = obtenir_primer_txt(ruta_usb)
 
-if ruta_arxiu_txt:
+def transmitter(radio):
+    data = get_data_file()
+    data.encode("utf-8")
+
+    # TODO: Blocks with full lines or split block in the middle of the line
     # Llegir l'arxiu per blocs (per exemple, 1 KB per bloc)
-    mida_bloc = 1024  # Llegir d'1 KB en 1 KB
+    mida_bloc = 1024
+    blocks = [
+        data[i:i + mida_bloc] for i in range(
+            0, len(data), mida_bloc
+        )
+    ]
 
-    for bloc in llegir_fitxer_per_blocs(ruta_arxiu_txt, mida_bloc):
+    for bloc in blocks:
         # Comprimir cada bloc de l'arxiu abans d'enviar-lo
-        bloc_comprimit = comprimir_dades_per_bloc(bloc)
+        bloc_comprimit = zlib.compress(bloc.encode('utf-8'))
 
         # Enviar el bloc comprimit
-        enviar_bloc(bloc_comprimit)
+        enviar_bloc(bloc_comprimit, radio)
 
         # Esperar a gestionar qualsevol petició de reenvio
-        if gestionar_peticio_reenvio():
-            enviar_bloc(bloc_comprimit)  # Reenviar el bloc si es demana
+        if gestionar_peticio_reenvio(radio):
+            enviar_bloc(bloc_comprimit, bloc)  # Reenviar el bloc si es demana
 
-else:
-    print("No s'ha trobat cap arxiu .txt al dispositiu USB.")
-
-GPIO.cleanup()  # Netejar els pins GPIO després d'utilitzar
+    # TODO: Is this needed 
+    # Enviar el fragment de final de document
+    final_document = bytes(32)  # Fragment ple de zeros per indicar el final de document
+    radio.write(final_document)  # Enviar el fragment de final de document
+    print("Fragment de final de document enviat.")
