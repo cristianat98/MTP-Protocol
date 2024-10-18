@@ -1,20 +1,19 @@
-
-
 # Configuració de GPIO
 GPIO.setmode(GPIO.BCM)  # Utilitza la numeració BCM dels pins de la Raspberry Pi
 
 # Configuració del mòdul NRF24
-ce_pin = 22  # Pin CE
+ce_pin = 17  # Pin CE
 csn_pin = 8  # Pin CSN (GPIO 8 = CE0 per SPI)
 
-radio = NRF24(GPIO, ce_pin, csn_pin)
-radio.begin(0, csn_pin)  # Configurem els pins CE i CSN
+# Crear l'objecte NRF24 amb els pins CE i CSN
+radio = nrf24.NRF24(GPIO, ce_pin, csn_pin)
+radio.begin(0, csn_pin)  # Configurem el SPI i els pins CE i CSN
 
 # Configuració de paràmetres del mòdul
-radio.setPALevel(NRF24.PA_MAX)  # Potència màxima
-radio.setDataRate(NRF24.BR_250KBPS)  # Velocitat de transmissió
+radio.setPALevel(nrf24.PA_MAX)  # Potència màxima
+radio.setDataRate(nrf24.BR_250KBPS)  # Velocitat de transmissió
 radio.setChannel(76)  # Canal de transmissió
-radio.setCRCLength(NRF24.CRC_16)  # CRC de 16 bits
+radio.setCRCLength(nrf24.CRC_16)  # CRC de 16 bits
 radio.setRetries(2, 15)  # Retràs de 2 * 250 µs, fins a 15 reintents
 radio.setPayloadSize(32)  # Configura la mida del payload
 radio.setAutoAck(True)  # Activar l'ACK automàtic
@@ -77,3 +76,4 @@ elif mode == 'R':
 
 else:
     print("Opció no vàlida. Si us plau, escull 'T' per transmissor o 'R' per receptor.")
+
