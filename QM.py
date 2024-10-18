@@ -1,6 +1,4 @@
-import RPi.GPIO as GPIO
-import nrf24
-import time
+
 
 # Configuració de GPIO
 GPIO.setmode(GPIO.BCM)  # Utilitza la numeració BCM dels pins de la Raspberry Pi
