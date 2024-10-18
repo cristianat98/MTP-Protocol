@@ -1,5 +1,5 @@
 import RPi.GPIO as GPIO
-from RF24 import NRF24
+import nrf24
 import time
 
 # Configuració de GPIO
