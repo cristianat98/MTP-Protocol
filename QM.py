@@ -6,7 +6,7 @@ import time
 GPIO.setmode(GPIO.BCM)  # Utilitza la numeració BCM dels pins de la Raspberry Pi
 
 # Configuració del mòdul NRF24
-ce_pin = 17  # Pin CE
+ce_pin = 22  # Pin CE
 csn_pin = 8  # Pin CSN (GPIO 8 = CE0 per SPI)
 
 radio = NRF24(GPIO, ce_pin, csn_pin)
