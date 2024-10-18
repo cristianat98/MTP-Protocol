@@ -1,45 +1,42 @@
-import RPi.GPIO as GPIO
-import nrf24
 import time
+import digitalio
+from circuitpython_nrf24l01.rf24 import RF24
+import board
 
 # Configuració del mòdul NRF24
-ce_pin = 17  # Pin CE
-csn_pin = 8  # Pin CSN (GPIO 8 = CE0 per SPI)
+ce_pin = board.D17  # Pin CE (GPIO 17)
+csn_pin = board.D8   # Pin CSN (GPIO 8)
 
-# Crear l'objecte NRF24 amb els pins CE i CSN
-radio = nrf24.NRF24(GPIO, ce_pin, csn_pin)
-radio.begin(0, csn_pin)  # Configurem el SPI i els pins CE i CSN
+# Inicialització dels pins
+ce = digitalio.DigitalInOut(ce_pin)
+csn = digitalio.DigitalInOut(csn_pin)
 
-# Configuració de paràmetres del mòdul
-radio.setPALevel(nrf24.PA_MAX)  # Potència màxima
-radio.setDataRate(nrf24.BR_250KBPS)  # Velocitat de transmissió
-radio.setChannel(76)  # Canal de transmissió
-radio.setCRCLength(nrf24.CRC_16)  # CRC de 16 bits
-radio.setRetries(2, 15)  # Retràs de 2 * 250 µs, fins a 15 reintents
-radio.setPayloadSize(32)  # Configura la mida del payload
-radio.setAutoAck(True)  # Activar l'ACK automàtic
-radio.enableDynamicPayloads()  # Habilita càrrega útil dinàmica
-radio.enableAckPayload()  # Habilita càrrega útil a l'ACK
+# Crear l'objecte RF24
+radio = RF24(ce, csn)
 
-# Pipes de comunicació
-transmitter_pipe = b'1Node'
-receiver_pipe = b'2Node'
-radio.openWritingPipe(transmitter_pipe)  # Pipe del transmissor
-radio.openReadingPipe(1, receiver_pipe)  # Pipe del receptor
+# Inicialitzar el mòdul
+radio.begin()  # Inicialització del mòdul
+radio.set_rf_channel(76)  # Canal de transmissió
+radio.set_pa_level(RF24.PA_MAX)  # Potència màxima
+radio.set_data_rate(RF24.BR_250KBPS)  # Velocitat de transmissió
+radio.set_crc_length(RF24.CRC_16)  # CRC de 16 bits
+radio.enable_dynamic_payloads()  # Habilita càrrega útil dinàmica
+radio.open_writing_pipe(b'1Node')  # Pipe del transmissor
+radio.open_reading_pipe(1, b'2Node')  # Pipe del receptor
 
 # Pregunta si el mòdul serà transmissor o receptor
 mode = input("El mòdul serà transmissor o receptor? (T/R): ").strip().upper()
 
 if mode == 'T':
     # Si és transmissor
-    radio.stopListening()  # Atura l'escolta per poder transmetre
+    radio.stop_listening()  # Atura l'escolta per poder transmetre
     while True:
         missatge = input("Escriu un missatge per enviar: ")
-        # Converteix el missatge en una llista de bytes
-        missatge_bytes = list(missatge.encode('utf-8'))
+        # Converteix el missatge en bytes
+        missatge_bytes = missatge.encode('utf-8')
+
         # Omple amb zeros per arribar a 32 bytes si cal
-        while len(missatge_bytes) < 32:
-            missatge_bytes.append(0)
+        missatge_bytes = missatge_bytes.ljust(32, b'\0')  
         
         # Envia el missatge
         resultat = radio.write(missatge_bytes)
@@ -54,7 +51,7 @@ if mode == 'T':
 
 elif mode == 'R':
     # Si és receptor
-    radio.startListening()  # Posa el mòdul en mode escolta
+    radio.start_listening()  # Posa el mòdul en mode escolta
     
     print("Esperant missatge...")
     
@@ -62,11 +59,11 @@ elif mode == 'R':
         try:
             # Comprova si hi ha dades disponibles per rebre
             if radio.available():
-                missatge_recibut = []
-                radio.read(missatge_recibut, radio.getDynamicPayloadSize())
+                missatge_recibut = bytearray(32)  # Crear un array de bytes per rebre el missatge
+                radio.read(missatge_recibut, len(missatge_recibut))  # Llegeix el missatge
                 
                 # Converteix la llista de bytes a una cadena
-                missatge_text = ''.join([chr(b) for b in missatge_recibut if b != 0])
+                missatge_text = missatge_recibut.decode('utf-8').rstrip('\0')  # Elimina el padding de zeros
                 
                 print(f"Missatge rebut: {missatge_text}")
         
@@ -77,4 +74,5 @@ elif mode == 'R':
 
 else:
     print("Opció no vàlida. Si us plau, escull 'T' per transmissor o 'R' per receptor.")
+
 
